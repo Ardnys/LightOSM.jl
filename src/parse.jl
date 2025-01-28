@@ -10,8 +10,8 @@ function maxspeed(tags::AbstractDict)::DEFAULT_OSM_MAXSPEED_TYPE
             return maxspeed
         elseif maxspeed isa AbstractFloat
             return U(round(maxspeed))
-        elseif maxspeed isa String 
-            if occursin("conditional", maxspeed) 
+        elseif maxspeed isa String
+            if occursin("conditional", maxspeed)
                 maxspeed = remove_sub_string_after(maxspeed, "conditional")
             end
 
@@ -22,7 +22,7 @@ function maxspeed(tags::AbstractDict)::DEFAULT_OSM_MAXSPEED_TYPE
                 speed = occursin("mph", speed) ? remove_non_numeric(speed) * KMH_PER_MPH : remove_non_numeric(speed)
                 push!(cleaned_maxspeeds, speed)
             end
-            
+
             return U(round(mean(cleaned_maxspeeds)))
         else
             throw(ErrorException("Maxspeed is neither a string nor number, check data quality: $maxspeed"))
@@ -46,7 +46,7 @@ function lanes(tags::AbstractDict)::DEFAULT_OSM_LANES_TYPE
             return lanes
         elseif lanes isa AbstractFloat
             return U(round(lanes))
-        elseif lanes isa String 
+        elseif lanes isa String
             lanes = split(lanes, COMMON_OSM_STRING_DELIMITERS)
             lanes = [remove_non_numeric(l) for l in lanes]
             return U(round(mean(lanes)))
@@ -122,7 +122,7 @@ is_restriction(tags::AbstractDict)::Bool = get(tags, "type", "") == "restriction
 """
 Determine if a restriction is valid and has usable data.
 """
-function is_valid_restriction(members::AbstractArray, ways::AbstractDict{T,Way{T}})::Bool where T <: DEFAULT_OSM_ID_TYPE
+function is_valid_restriction(members::AbstractArray, ways::AbstractDict{T,Way{T}})::Bool where {T<:DEFAULT_OSM_ID_TYPE}
     role_counts = DefaultDict(0)
     role_type_counts = DefaultDict(0)
     ways_set = Set{Int}()
@@ -156,7 +156,7 @@ function is_valid_restriction(members::AbstractArray, ways::AbstractDict{T,Way{T
        !(
            (role_type_counts["via_node"] == 1 && role_type_counts["via_way"] < 1) ||
            (role_type_counts["via_node"] < 1 && role_type_counts["via_way"] >= 1)
-        )
+       )
         # Restrictions with multiple "from" and "to" members cannot be processed
         # Restrictions with multiple "via" "node" members cannot be processed
         # Restrictions with combination of "via" "node" and "via" "way" members cannot be processed
@@ -180,9 +180,9 @@ function is_valid_restriction(members::AbstractArray, ways::AbstractDict{T,Way{T
             via_way_nodes_list = [ways[w].nodes for w in via_ways]
             via_way_nodes = join_arrays_on_common_trailing_elements(via_way_nodes_list...)
             trailing_via_way_nodes = trailing_elements(via_way_nodes)
-        
+
             if isempty(intersect(trailing_via_way_nodes, trailing_to_way_nodes)) ||
-            isempty(intersect(trailing_via_way_nodes, trailing_from_way_nodes))
+               isempty(intersect(trailing_via_way_nodes, trailing_from_way_nodes))
                 return false
             end
         catch
@@ -197,11 +197,11 @@ end
 """
 Parse OpenStreetMap data into `Node`, `Way` and `Restriction` objects.
 """
-function parse_osm_network_dict(osm_network_dict::AbstractDict, 
-                                network_type::Symbol=:drive;
-                                filter_network_type::Bool=true
-                                )::OSMGraph
-    
+function parse_osm_network_dict(osm_network_dict::AbstractDict,
+    network_type::Symbol=:drive;
+    filter_network_type::Bool=true
+)::OSMGraph
+
     U = DEFAULT_OSM_INDEX_TYPE
     T = get_id_type(osm_network_dict)
     W = DEFAULT_OSM_EDGE_WEIGHT_TYPE
@@ -220,12 +220,12 @@ function parse_osm_network_dict(osm_network_dict::AbstractDict,
                 nds = way["nodes"]
                 union!(highway_nodes, nds)
                 id = way["id"]
-                ways[id] = Way(id, nds, tags)
+                ways[id] = Way(id, nds, tags, false)
             elseif is_railway(tags) && (!filter_network_type || matches_network_type(tags, network_type))
                 tags["rail_type"] = get(tags, "railway", "unknown")
                 tags["electrified"] = get(tags, "electrified", "unknown")
                 tags["gauge"] = get(tags, "gauge", nothing)
-                tags["usage"] = get(tags, "usage",  "unknown")
+                tags["usage"] = get(tags, "usage", "unknown")
                 tags["name"] = get(tags, "name", "unknown")
                 tags["lanes"] = lanes(tags)
                 tags["maxspeed"] = maxspeed(tags)
@@ -234,7 +234,7 @@ function parse_osm_network_dict(osm_network_dict::AbstractDict,
                 nds = way["nodes"]
                 union!(highway_nodes, nds)
                 id = way["id"]
-                ways[id] = Way(id, nds, tags)
+                ways[id] = Way(id, nds, tags, false)
             end
         end
     end
@@ -250,7 +250,7 @@ function parse_osm_network_dict(osm_network_dict::AbstractDict,
             )
         end
     end
-    
+
     restrictions = Dict{T,Restriction{T}}()
     if haskey(osm_network_dict, "relation")
         for relation in osm_network_dict["relation"]
@@ -276,7 +276,7 @@ function parse_osm_network_dict(osm_network_dict::AbstractDict,
                         type=haskey(restriction_kwargs, :via_way) ? "via_way" : "via_node",
                         is_exclusion=occursin("no", tags["restriction"]) ? true : false,
                         is_exclusive=occursin("only", tags["restriction"]) ? true : false,
-                        ;restriction_kwargs...
+                        ; restriction_kwargs...
                     )
                 end
             end
@@ -293,7 +293,7 @@ function parse_xml_dict_to_json_dict(dict::AbstractDict)::AbstractDict
     for (type, elements) in dict
         for (i, el) in enumerate(elements)
             !(el isa AbstractDict) && continue
-            sub_dict::Dict{String, Any} = el
+            sub_dict::Dict{String,Any} = el
             if haskey(sub_dict, "tag")
                 dict[type][i]["tags"] = Dict{String,Any}(tag["k"] => tag["v"] for tag in sub_dict["tag"] if tag["k"] isa String)
                 delete!(dict[type][i], "tag")
@@ -338,14 +338,14 @@ end
 """
 Initialises the OSMGraph object from OpenStreetMap data downloaded in `:xml` or `:osm` format.
 """
-function init_graph_from_object(osm_xml_object::XMLDocument, 
-                                network_type::Symbol=:drive;
-                                filter_network_type::Bool=true
-                                )::OSMGraph
+function init_graph_from_object(osm_xml_object::XMLDocument,
+    network_type::Symbol=:drive;
+    filter_network_type::Bool=true
+)::OSMGraph
     dict_to_parse = osm_dict_from_xml(osm_xml_object)
     return parse_osm_network_dict(
-        dict_to_parse, 
-        network_type; 
+        dict_to_parse,
+        network_type;
         filter_network_type=filter_network_type
     )
 end
@@ -353,14 +353,14 @@ end
 """
 Initialises the OSMGraph object from OpenStreetMap data downloaded in `:json` format.
 """
-function init_graph_from_object(osm_json_object::AbstractDict, 
-                                network_type::Symbol=:drive;
-                                filter_network_type::Bool=true
-                                )::OSMGraph
+function init_graph_from_object(osm_json_object::AbstractDict,
+    network_type::Symbol=:drive;
+    filter_network_type::Bool=true
+)::OSMGraph
     dict_to_parse = osm_dict_from_json(osm_json_object)
     return parse_osm_network_dict(
-        dict_to_parse, 
-        network_type; 
+        dict_to_parse,
+        network_type;
         filter_network_type=filter_network_type
     )
 end
@@ -375,7 +375,7 @@ function get_id_type(osm_network_dict::AbstractDict)::Type
     if isempty(osm_network_dict["node"])
         return Int64
     end
-    
+
     first_id = osm_network_dict["node"][1]["id"]
 
     if first_id isa Integer

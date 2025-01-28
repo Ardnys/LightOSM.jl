@@ -31,8 +31,8 @@ function Base.isapprox(loc1::GeoLocation, loc2::GeoLocation)
 end
 function Base.hash(loc::GeoLocation, h::UInt)
     for field in fieldnames(GeoLocation)
-		h = hash(getproperty(loc, field), h)
-	end
+        h = hash(getproperty(loc, field), h)
+    end
     return h
 end
 
@@ -45,7 +45,7 @@ OpenStreetMap node.
 - `nodes::Vector{T}`: Node's GeoLocation.
 - `tags::AbstractDict{String,Any}`: Metadata tags.
 """
-struct Node{T <: Union{Integer, String}}
+struct Node{T<:Union{Integer,String}}
     id::T
     location::GeoLocation
     tags::Union{Dict{String,Any},Nothing}
@@ -60,12 +60,13 @@ OpenStreetMap way.
 - `nodes::Vector{T}`: Ordered list of node ids making up the way.
 - `tags::AbstractDict{String,Any}`: Metadata tags.
 """
-struct Way{T <: Union{Integer, String}}
+struct Way{T<:Union{Integer,String}}
     id::T
     nodes::Vector{T}
     tags::Dict{String,Any}
+    blocked::Bool
 end
-Way(id::T, nodes, tags::Dict{String, Any}) where T <: Union{Integer, String} = Way(id, convert(Vector{T}, nodes), tags)
+Way(id::T, nodes, tags::Dict{String,Any}, blocked) where {T<:Union{Integer,String}} = Way(id, convert(Vector{T}, nodes), tags, blocked)
 
 
 """
@@ -78,7 +79,7 @@ A point along the edge between two OSM nodes.
 - `n2::T`: Second node of edge.
 - `pos::Float64`: Position from `n1` to `n2`, from 0 to 1.
 """
-struct EdgePoint{T<:Union{Integer, String}}
+struct EdgePoint{T<:Union{Integer,String}}
     n1::T
     n2::T
     pos::Float64
@@ -99,7 +100,7 @@ OpenStreetMap turn restriction (relation).
 - `is_exclusion::Bool`: Turn restrictions such as `no_left_turn`, `no_right_turn` or `no_u_turn`.
 - `is_exclusive::Bool`: Turn restrictions such as `striaght_on_only`, `left_turn_only`, `right_turn_only`.
 """
-@with_kw struct Restriction{T <: Union{Integer, String}}
+@with_kw struct Restriction{T<:Union{Integer,String}}
     id::T
     type::String
     tags::Dict{String,Any}
@@ -109,7 +110,7 @@ OpenStreetMap turn restriction (relation).
     via_way::Union{Vector{T},Nothing} = nothing
     is_exclusion::Bool = false
     is_exclusive::Bool = false
-end 
+end
 
 """
 Container for storing OpenStreetMap node, way, relation and graph related obejcts.
@@ -132,7 +133,7 @@ Container for storing OpenStreetMap node, way, relation and graph related obejct
 - `kdtree::Union{RTree,Nothing}`: R-tree used to calculate nearest nodes.
 - `weight_type::Union{Symbol,Nothing}`: Either `:distance`, `:time` or `:lane_efficiency`.
 """
-@with_kw mutable struct OSMGraph{U <: Integer,T <: Union{Integer, String},W <: Real}
+@with_kw mutable struct OSMGraph{U<:Integer,T<:Union{Integer,String},W<:Real}
     nodes::Dict{T,Node{T}} = Dict{T,Node{T}}()
     node_coordinates::Vector{Vector{W}} = Vector{Vector{W}}() # needed for astar heuristic
     ways::Dict{T,Way{T}} = Dict{T,Way{T}}()
@@ -145,7 +146,7 @@ Container for storing OpenStreetMap node, way, relation and graph related obejct
     graph::Union{AbstractGraph,Nothing} = nothing
     weights::Union{SparseMatrixCSC{W,U},Nothing} = nothing #errors
     dijkstra_states::Union{Vector{Vector{U}},Nothing} = nothing
-    kdtree::Union{KDTree{StaticArrays.SVector{3, W},Euclidean,W},Nothing} = nothing
+    kdtree::Union{KDTree{StaticArrays.SVector{3,W},Euclidean,W},Nothing} = nothing
     rtree::Union{RTree{Float64,3,SpatialElem{Float64,3,T,Nothing}},Nothing} = nothing
     weight_type::Union{Symbol,Nothing} = nothing
 end
@@ -175,7 +176,7 @@ OpenStreetMap building polygon.
 - `nodes::Vector{T}`: Ordered list of node ids making up the building polyogn.
 - `is_outer::Bool`: True if polygon is the outer ring of a multi-polygon.
 """
-struct Polygon{T <: Union{Integer, String}}
+struct Polygon{T<:Union{Integer,String}}
     id::T
     nodes::Vector{Node{T}}
     is_outer::Bool # or inner
@@ -191,7 +192,7 @@ OpenStreetMap building.
 - `polygons::Vector{Polygon{T}}`: List of building polygons, first is always the outer ring.
 - `tags::AbstractDict{String,Any}`: Metadata tags.
 """
-struct Building{T <: Union{Integer, String}}
+struct Building{T<:Union{Integer,String}}
     id::T
     is_relation::Bool # or way
     polygons::Vector{Polygon{T}}
@@ -217,6 +218,6 @@ abstract type AStarDict <: AStar end
 Additional GeoLocation methods that require types defined above.
 """
 GeoLocation(g::OSMGraph, ep::EdgePoint)::GeoLocation = GeoLocation(
-    lon = g.nodes[ep.n1].location.lon + (g.nodes[ep.n2].location.lon - g.nodes[ep.n1].location.lon) * ep.pos,
-    lat = g.nodes[ep.n1].location.lat + (g.nodes[ep.n2].location.lat - g.nodes[ep.n1].location.lat) * ep.pos
+    lon=g.nodes[ep.n1].location.lon + (g.nodes[ep.n2].location.lon - g.nodes[ep.n1].location.lon) * ep.pos,
+    lat=g.nodes[ep.n1].location.lat + (g.nodes[ep.n2].location.lat - g.nodes[ep.n1].location.lat) * ep.pos
 )
