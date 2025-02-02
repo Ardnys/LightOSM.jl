@@ -1,11 +1,11 @@
 function overpass_polygon_buildings_query(geojson_polygons::Vector{Vector{Any}},
-                                          metadata::Bool=false,
-                                          download_format::Symbol=:osm
-                                          )::String
+    metadata::Bool=false,
+    download_format::Symbol=:osm
+)::String
     filters = ""
     for polygon in geojson_polygons
         polygon = map(x -> [x[2], x[1]], polygon) # switch lon-lat to lat-lon
-        polygon_str = replace("$polygon", r"[\[,\]]" =>  "")
+        polygon_str = replace("$polygon", r"[\[,\]]" => "")
         filters *= """node["building"](poly:"$polygon_str");<;way["building"](poly:"$polygon_str");>;rel["building"](poly:"$polygon_str");>;"""
     end
 
@@ -28,10 +28,10 @@ Downloads OpenStreetMap buildings using any place name string.
 # Return
 - `String`: OpenStreetMap buildings data response string.
 """
-function osm_buildings_from_place_name(;place_name::String,
-                                       metadata::Bool=false,
-                                       download_format::Symbol=:osm
-                                       )::String
+function osm_buildings_from_place_name(; place_name::String,
+    metadata::Bool=false,
+    download_format::Symbol=:osm
+)::String
     geojson_polygons = polygon_from_place_name(place_name)
     query = overpass_polygon_buildings_query(geojson_polygons, metadata, download_format)
     return overpass_request(query)
@@ -59,13 +59,13 @@ Downloads OpenStreetMap buildings using bounding box coordinates.
 # Return
 - `String`: OpenStreetMap buildings data response string.
 """
-function osm_buildings_from_bbox(;minlat::Float64,
-                                 minlon::Float64,
-                                 maxlat::Float64,
-                                 maxlon::Float64,
-                                 metadata::Bool=false,
-                                 download_format::Symbol=:osm
-                                 )::String
+function osm_buildings_from_bbox(; minlat::Float64,
+    minlon::Float64,
+    maxlat::Float64,
+    maxlon::Float64,
+    metadata::Bool=false,
+    download_format::Symbol=:osm
+)::String
     filters = """node["building"];<;way["building"];>;rel["building"];>;"""
     bbox = [minlat, minlon, maxlat, maxlon]
     query = overpass_query(filters, metadata, download_format, bbox)
@@ -90,13 +90,13 @@ Downloads OpenStreetMap buildings using bounding box coordinates calculated from
 # Return
 - `String`: OpenStreetMap buildings data response string.
 """
-function osm_buildings_from_point(;point::GeoLocation,
-                                  radius::Number,
-                                  metadata::Bool=false,
-                                  download_format::Symbol=:osm
-                                  )::String
+function osm_buildings_from_point(; point::GeoLocation,
+    radius::Number,
+    metadata::Bool=false,
+    download_format::Symbol=:osm
+)::String
     bbox = bounding_box_from_point(point, radius)
-    return osm_buildings_from_bbox(;bbox..., metadata=metadata, download_format=download_format)
+    return osm_buildings_from_bbox(; bbox..., metadata=metadata, download_format=download_format)
 end
 
 function osm_buildings_downloader(download_method::Symbol)::Function
@@ -146,11 +146,11 @@ Downloads OpenStreetMap buildings data by querying with a place name, bounding b
 - `Union{XMLDocument,Dict{String,Any}}`: OpenStreetMap buildings data parsed as either XML or Dictionary object depending on the download method.
 """
 function download_osm_buildings(download_method::Symbol;
-                                metadata::Bool=false,
-                                download_format::Symbol=:osm,
-                                save_to_file_location::Union{String,Nothing}=nothing,
-                                download_kwargs...
-                                )::Union{XMLDocument,Dict{String,Any}}
+    metadata::Bool=false,
+    download_format::Symbol=:osm,
+    save_to_file_location::Union{String,Nothing}=nothing,
+    download_kwargs...
+)::Union{XMLDocument,Dict{String,Any}}
     downloader = osm_buildings_downloader(download_method)
     data = downloader(metadata=metadata, download_format=download_format; download_kwargs...)
     @info "Downloaded osm buildings data from $(["$k: $v" for (k, v) in download_kwargs]) in $download_format format"
@@ -186,7 +186,7 @@ end
 
 function parse_osm_buildings_dict(osm_buildings_dict::AbstractDict)::Dict{Integer,Building}
     T = DEFAULT_OSM_ID_TYPE
-    
+
     nodes = Dict{T,Node{T}}()
     for node in osm_buildings_dict["node"]
         id = node["id"]
@@ -208,9 +208,9 @@ function parse_osm_buildings_dict(osm_buildings_dict::AbstractDict)::Dict{Intege
             tags = relation["tags"]
             rel_id = relation["id"]
             members = relation["members"]
-            
+
             polygons = Vector{Polygon{T}}()
-            for member in members 
+            for member in members
                 member["type"] != "way" && continue
                 way_id = member["ref"]
                 way = ways[way_id]
@@ -224,8 +224,8 @@ function parse_osm_buildings_dict(osm_buildings_dict::AbstractDict)::Dict{Intege
             end
 
             tags["height"] = height(tags)
-            sort!(polygons, by = x -> x.is_outer, rev=true) # sorting so outer polygon is always first
-            buildings[rel_id] = Building{T}(rel_id, is_relation, polygons, tags)
+            sort!(polygons, by=x -> x.is_outer, rev=true) # sorting so outer polygon is always first
+            buildings[rel_id] = Building{T}(rel_id, is_relation, polygons, tags, false, "none", 0)
         end
     end
 
@@ -238,7 +238,7 @@ function parse_osm_buildings_dict(osm_buildings_dict::AbstractDict)::Dict{Intege
             tags["height"] = height(tags)
             nds = [nodes[n] for n in way["nodes"]]
             polygons = [Polygon(way_id, nds, is_outer)]
-            buildings[way_id] = Building{T}(way_id, is_relation, polygons, tags)
+            buildings[way_id] = Building{T}(way_id, is_relation, polygons, tags, false, "none", 0)
         end
     end
 
@@ -330,15 +330,15 @@ Downloads and Creates `Building` objects from OpenStreetMap APIs.
 - `Dict{Integer,Building}`: Mapping from building relation/way ids to `Building` objects.
 """
 function buildings_from_download(download_method::Symbol;
-                                 metadata::Bool=false,
-                                 download_format::Symbol=:osm,
-                                 save_to_file_location::Union{String,Nothing}=nothing,
-                                 download_kwargs...
-                                 )::Dict{Integer,Building}
+    metadata::Bool=false,
+    download_format::Symbol=:osm,
+    save_to_file_location::Union{String,Nothing}=nothing,
+    download_kwargs...
+)::Dict{Integer,Building}
     obj = download_osm_buildings(download_method,
-                                 metadata=metadata,
-                                 download_format=download_format,
-                                 save_to_file_location=save_to_file_location;
-                                 download_kwargs...)
+        metadata=metadata,
+        download_format=download_format,
+        save_to_file_location=save_to_file_location;
+        download_kwargs...)
     return buildings_from_object(obj)
 end

@@ -59,6 +59,7 @@ OpenStreetMap way.
 - `id::T`: OpenStreetMap way id.
 - `nodes::Vector{T}`: Ordered list of node ids making up the way.
 - `tags::AbstractDict{String,Any}`: Metadata tags.
+- `blocked::Bool`: Whether the road is blocked or not.
 """
 struct Way{T<:Union{Integer,String}}
     id::T
@@ -197,7 +198,12 @@ struct Building{T<:Union{Integer,String}}
     is_relation::Bool # or way
     polygons::Vector{Polygon{T}}
     tags::AbstractDict{String,Any}
+    collapsed::Bool
+    damage::String
+    debris_area::Int64
 end
+# this didn't work for some reason
+Building(id, is_relation, polygons, tags) = Building(id, is_relation, polygons, tags, false, "none", 0)
 
 """
 PathAlgorithm.
