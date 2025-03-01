@@ -220,7 +220,8 @@ function parse_osm_network_dict(osm_network_dict::AbstractDict,
                 nds = way["nodes"]
                 union!(highway_nodes, nds)
                 id = way["id"]
-                ways[id] = Way(id, nds, tags, false)
+                blocked_nodes = falses(size(nds))
+                ways[id] = Way(id, nds, tags, blocked_nodes)
             elseif is_railway(tags) && (!filter_network_type || matches_network_type(tags, network_type))
                 tags["rail_type"] = get(tags, "railway", "unknown")
                 tags["electrified"] = get(tags, "electrified", "unknown")
@@ -234,7 +235,8 @@ function parse_osm_network_dict(osm_network_dict::AbstractDict,
                 nds = way["nodes"]
                 union!(highway_nodes, nds)
                 id = way["id"]
-                ways[id] = Way(id, nds, tags, false)
+                blocked_nodes = falses(size(nds))
+                ways[id] = Way(id, nds, tags, blocked_nodes)
             end
         end
     end

@@ -59,15 +59,16 @@ OpenStreetMap way.
 - `id::T`: OpenStreetMap way id.
 - `nodes::Vector{T}`: Ordered list of node ids making up the way.
 - `tags::AbstractDict{String,Any}`: Metadata tags.
-- `blocked::Bool`: Whether the road is blocked or not.
+- `blocked::Vector{Bool}`: Whether the road segments are blocked or not. Must have the same dimension as nodes
 """
 struct Way{T<:Union{Integer,String}}
     id::T
     nodes::Vector{T}
     tags::Dict{String,Any}
-    blocked::Bool
+    blocked::BitVector
 end
 Way(id::T, nodes, tags::Dict{String,Any}, blocked) where {T<:Union{Integer,String}} = Way(id, convert(Vector{T}, nodes), tags, blocked)
+# TODO assert that blocked and nodes are equal size
 
 
 """
