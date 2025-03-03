@@ -45,10 +45,11 @@ OpenStreetMap node.
 - `nodes::Vector{T}`: Node's GeoLocation.
 - `tags::AbstractDict{String,Any}`: Metadata tags.
 """
-struct Node{T<:Union{Integer,String}}
+mutable struct Node{T<:Union{Integer,String}}
     id::T
     location::GeoLocation
     tags::Union{Dict{String,Any},Nothing}
+    blocked::Bool
 end
 
 """

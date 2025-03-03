@@ -193,7 +193,8 @@ function parse_osm_buildings_dict(osm_buildings_dict::AbstractDict)::Dict{Intege
         nodes[id] = Node{T}(
             id,
             GeoLocation(node["lat"], node["lon"]),
-            haskey(node, "tags") ? node["tags"] : nothing
+            haskey(node, "tags") ? node["tags"] : nothing,
+            false
         )
     end
 
