@@ -41,16 +41,18 @@ function graph_from_object(osm_data_object::Union{XMLDocument,Dict};
                            graph_type::Symbol=:static,
                            precompute_dijkstra_states::Bool=false,
                            largest_connected_component::Bool=true,
-                           filter_network_type::Bool=true
+                           filter_network_type::Bool=true,
+                           disable_restrictions::Bool=false,
+                           ignore_oneway::Bool=false
                            )::OSMGraph
-    g = init_graph_from_object(osm_data_object, network_type, filter_network_type=filter_network_type)
-    add_node_and_edge_mappings!(g)
+    g = init_graph_from_object(osm_data_object, network_type; filter_network_type=filter_network_type, disable_restrictions)
+    add_node_and_edge_mappings!(g; ignore_oneway)
     add_weights!(g, weight_type)
     add_graph!(g, graph_type)
     # Finding connected components can only be done after LightGraph object has been constructed
     largest_connected_component && trim_to_largest_connected_component!(g, g.graph, weight_type, graph_type) # Pass in graph to make type stable
     add_node_tags!(g)
-    !(network_type in [:bike, :walk]) && add_indexed_restrictions!(g)
+    (!(network_type in [:bike, :walk]) && !disable_restrictions) && add_indexed_restrictions!(g)
 
     if precompute_dijkstra_states
         add_dijkstra_states!(g)
@@ -203,7 +205,7 @@ end
 
 Adds mappings between nodes, edges and ways to `OSMGraph`.
 """
-function add_node_and_edge_mappings!(g::OSMGraph{U,T,W}) where {U <: DEFAULT_OSM_INDEX_TYPE,T <: DEFAULT_OSM_ID_TYPE,W <: Real}
+function add_node_and_edge_mappings!(g::OSMGraph{U,T,W}; ignore_oneway::Bool=false) where {U <: DEFAULT_OSM_INDEX_TYPE,T <: DEFAULT_OSM_ID_TYPE,W <: Real}
     for (way_id, way) in g.ways
         @inbounds for (i, node_id) in enumerate(way.nodes)
             if haskey(g.node_to_way, node_id)
@@ -223,7 +225,7 @@ function add_node_and_edge_mappings!(g::OSMGraph{U,T,W}) where {U <: DEFAULT_OSM
                 
                 g.edge_to_way[[o, d]] = way_id
 
-                if !way.tags["oneway"]::Bool
+                if !way.tags["oneway"]::Bool || ignore_oneway
                     g.edge_to_way[[d, o]] = way_id
                 end
             end                

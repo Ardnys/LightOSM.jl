@@ -199,7 +199,8 @@ Parse OpenStreetMap data into `Node`, `Way` and `Restriction` objects.
 """
 function parse_osm_network_dict(osm_network_dict::AbstractDict,
     network_type::Symbol=:drive;
-    filter_network_type::Bool=true
+    filter_network_type::Bool=true,
+    disable_restrictions::Bool=false
 )::OSMGraph
 
     U = DEFAULT_OSM_INDEX_TYPE
@@ -255,7 +256,7 @@ function parse_osm_network_dict(osm_network_dict::AbstractDict,
     end
 
     restrictions = Dict{T,Restriction{T}}()
-    if haskey(osm_network_dict, "relation")
+    if haskey(osm_network_dict, "relation") && !disable_restrictions
         for relation in osm_network_dict["relation"]
             if haskey(relation, "tags") && haskey(relation, "members")
                 tags = relation["tags"]
@@ -343,13 +344,15 @@ Initialises the OSMGraph object from OpenStreetMap data downloaded in `:xml` or 
 """
 function init_graph_from_object(osm_xml_object::XMLDocument,
     network_type::Symbol=:drive;
-    filter_network_type::Bool=true
+    filter_network_type::Bool=true,
+    disable_restrictions::Bool=false
 )::OSMGraph
     dict_to_parse = osm_dict_from_xml(osm_xml_object)
     return parse_osm_network_dict(
         dict_to_parse,
         network_type;
-        filter_network_type=filter_network_type
+        filter_network_type=filter_network_type,
+        disable_restrictions
     )
 end
 
@@ -358,13 +361,15 @@ Initialises the OSMGraph object from OpenStreetMap data downloaded in `:json` fo
 """
 function init_graph_from_object(osm_json_object::AbstractDict,
     network_type::Symbol=:drive;
-    filter_network_type::Bool=true
+    filter_network_type::Bool=true,
+    disable_restrictions::Bool=false
 )::OSMGraph
     dict_to_parse = osm_dict_from_json(osm_json_object)
     return parse_osm_network_dict(
         dict_to_parse,
         network_type;
-        filter_network_type=filter_network_type
+        filter_network_type=filter_network_type,
+        disable_restrictions
     )
 end
 
