@@ -4,7 +4,9 @@
                       weight_type::Symbol=:time,
                       graph_type::Symbol=:static,
                       precompute_dijkstra_states::Bool=false,
-                      largest_connected_component::Bool=true
+                      largest_connected_component::Bool=true,
+                      disable_restrictions::Bool=false,
+                      ignore_oneway::Bool=false
                       )::OSMGraph
 
 Creates an `OSMGraph` object from download OpenStreetMap network data, use with 
@@ -30,6 +32,8 @@ Creates an `OSMGraph` object from download OpenStreetMap network data, use with
 - `filter_network_type::Bool=true`: Set true to filter out nodes and edges that do not 
     match the `network_type` filter. Useful if the network data was downloaded with custom
     Overpass filters and/or not generated with LightOSM.
+- `disable_restrictions::Bool=false`: Set true to disable road restrictions.
+- `ignore_oneway::Bool=false`: Set true to ignore oneway restrictions.
 
 # Return
 - `OSMGraph`: Container for storing OpenStreetMap node-, way-, relation- and graph-related 
@@ -41,16 +45,18 @@ function graph_from_object(osm_data_object::Union{XMLDocument,Dict};
                            graph_type::Symbol=:static,
                            precompute_dijkstra_states::Bool=false,
                            largest_connected_component::Bool=true,
-                           filter_network_type::Bool=true
+                           filter_network_type::Bool=true,
+                           disable_restrictions::Bool=false,
+                           ignore_oneway::Bool=false
                            )::OSMGraph
-    g = init_graph_from_object(osm_data_object, network_type, filter_network_type=filter_network_type)
-    add_node_and_edge_mappings!(g)
+    g = init_graph_from_object(osm_data_object, network_type; filter_network_type=filter_network_type, disable_restrictions)
+    add_node_and_edge_mappings!(g; ignore_oneway)
     add_weights!(g, weight_type)
     add_graph!(g, graph_type)
     # Finding connected components can only be done after LightGraph object has been constructed
     largest_connected_component && trim_to_largest_connected_component!(g, g.graph, weight_type, graph_type) # Pass in graph to make type stable
     add_node_tags!(g)
-    !(network_type in [:bike, :walk]) && add_indexed_restrictions!(g)
+    (!(network_type in [:bike, :walk]) && !disable_restrictions) && add_indexed_restrictions!(g; ignore_oneway)
 
     if precompute_dijkstra_states
         add_dijkstra_states!(g)
@@ -70,7 +76,9 @@ end
                     weight_type::Symbol=:time,
                     graph_type::Symbol=:static,
                     precompute_dijkstra_states::Bool=false,
-                    largest_connected_component::Bool=true
+                    largest_connected_component::Bool=true,
+                    disable_restrictions::Bool=false,
+                    ignore_oneway::Bool=false
                     )::OSMGraph
 
 Creates an `OSMGraph` object from a downloaded OpenStreetMap network data file, the extention must be either `.json`, `.osm` or `.xml`.
@@ -85,6 +93,8 @@ Creates an `OSMGraph` object from a downloaded OpenStreetMap network data file, 
 - `filter_network_type::Bool=true`: Set true to filter out nodes and edges that do not 
     match the `network_type` filter. Useful if the network data was downloaded with custom
     Overpass filters and/or not generated with LightOSM.
+- `disable_restrictions::Bool=false`: Set true to disable road restrictions.
+- `ignore_oneway::Bool=false`: Set true to ignore oneway restrictions.
 
 # Return
 - `OSMGraph`: Container for storing OpenStreetMap node, way, relation and graph related obejcts.
@@ -95,7 +105,9 @@ function graph_from_file(file_path::String;
                          graph_type::Symbol=:static,
                          precompute_dijkstra_states::Bool=false,
                          largest_connected_component::Bool=true,
-                         filter_network_type::Bool=true
+                         filter_network_type::Bool=true,
+                         disable_restrictions::Bool=false,
+                         ignore_oneway::Bool=false
                          )::OSMGraph
 
     !isfile(file_path) && throw(ArgumentError("File $file_path does not exist"))
@@ -107,7 +119,9 @@ function graph_from_file(file_path::String;
                              graph_type=graph_type,
                              precompute_dijkstra_states=precompute_dijkstra_states,
                              largest_connected_component=largest_connected_component,
-                             filter_network_type=filter_network_type)
+                             filter_network_type=filter_network_type, 
+                             disable_restrictions=disable_restrictions,
+                             ignore_oneway=ignore_oneway)
 end
 
 """
@@ -120,6 +134,8 @@ end
                         graph_type::Symbol=:static,
                         precompute_dijkstra_states::Bool=false,
                         largest_connected_component::Bool=true,
+                        disable_restrictions::Bool=false,
+                        ignore_oneway::Bool=false,
                         download_kwargs...
                         )::OSMGraph
 
@@ -138,6 +154,8 @@ Downloads OpenStreetMap network data and creates an `OSMGraph` object.
 - `filter_network_type::Bool=true`: Set true to filter out nodes and edges that do not 
     match the `network_type` filter after download. You may want to use this with 
     `download_method=:custom_filters`.
+- `disable_restrictions::Bool=false`: Set true to disable road restrictions.
+- `ignore_oneway::Bool=false`: Set true to ignore oneway restrictions.
 
 # Required Kwargs for each Download Method
 
@@ -180,6 +198,8 @@ function graph_from_download(download_method::Symbol;
                              precompute_dijkstra_states::Bool=false,
                              largest_connected_component::Bool=true,
                              filter_network_type::Bool=true,
+                             disable_restrictions::Bool=false,
+                             ignore_oneway::Bool=false,
                              download_kwargs...
                              )::OSMGraph
     obj = download_osm_network(download_method,
@@ -194,7 +214,9 @@ function graph_from_download(download_method::Symbol;
                              graph_type=graph_type,
                              precompute_dijkstra_states=precompute_dijkstra_states,
                              largest_connected_component=largest_connected_component,
-                             filter_network_type=filter_network_type)
+                             filter_network_type=filter_network_type,
+                             disable_restrictions=disable_restrictions,
+                             ignore_oneway=ignore_oneway)
 end
 
 
@@ -203,7 +225,7 @@ end
 
 Adds mappings between nodes, edges and ways to `OSMGraph`.
 """
-function add_node_and_edge_mappings!(g::OSMGraph{U,T,W}) where {U <: DEFAULT_OSM_INDEX_TYPE,T <: DEFAULT_OSM_ID_TYPE,W <: Real}
+function add_node_and_edge_mappings!(g::OSMGraph{U,T,W}; ignore_oneway::Bool=false) where {U <: DEFAULT_OSM_INDEX_TYPE,T <: DEFAULT_OSM_ID_TYPE,W <: Real}
     for (way_id, way) in g.ways
         @inbounds for (i, node_id) in enumerate(way.nodes)
             if haskey(g.node_to_way, node_id)
@@ -223,7 +245,7 @@ function add_node_and_edge_mappings!(g::OSMGraph{U,T,W}) where {U <: DEFAULT_OSM
                 
                 g.edge_to_way[[o, d]] = way_id
 
-                if !way.tags["oneway"]::Bool
+                if !way.tags["oneway"]::Bool || ignore_oneway
                     g.edge_to_way[[d, o]] = way_id
                 end
             end                
@@ -270,7 +292,7 @@ end
 
 Finds the adjacent node id on a given way.
 """
-function adjacent_node(g::OSMGraph, node::T, way::T)::Union{T,Vector{<:T}} where T <: DEFAULT_OSM_ID_TYPE
+function adjacent_node(g::OSMGraph, node::T, way::T; ignore_oneway::Bool=false)::Union{T,Vector{<:T}} where T <: DEFAULT_OSM_ID_TYPE
     way_nodes = g.ways[way].nodes
     if node == way_nodes[1]
         return way_nodes[2]
@@ -280,11 +302,11 @@ function adjacent_node(g::OSMGraph, node::T, way::T)::Union{T,Vector{<:T}} where
         idx = findfirst(isequal(node), way_nodes)
         is_oneway = g.ways[way].tags["oneway"]
         is_reverseway = g.ways[way].tags["reverseway"]
-        if is_oneway && !is_reverseway
+        if is_oneway && !is_reverseway && !ignore_oneway # not sure about this, we need to test
             return way_nodes[idx + 1]
-        elseif is_oneway && is_reverseway
+        elseif is_oneway && is_reverseway && !ignore_oneway
             return way_nodes[idx - 1]
-        else
+        else # two-way scenario i think?
             # via_node is in the middle of a non-oneway highway, this is only the possible when the 
             # restriction is "only_straight_on", meaning vehicles can neither turn left nor right.
             return [way_nodes[idx - 1], way_nodes[idx + 1]]
@@ -300,7 +322,7 @@ Adds restrictions linked lists to `OSMGraph`.
 # Example
 `[from_way_node_index, ...via_way_node_indices..., to_way_node_index]`
 """
-function add_indexed_restrictions!(g::OSMGraph{U,T,W}) where {U <: DEFAULT_OSM_INDEX_TYPE,T <: DEFAULT_OSM_ID_TYPE,W <: Real}
+function add_indexed_restrictions!(g::OSMGraph{U,T,W}; ignore_oneway::Bool=false) where {U <: DEFAULT_OSM_INDEX_TYPE,T <: DEFAULT_OSM_ID_TYPE,W <: Real}
     g.indexed_restrictions = DefaultDict{U,Vector{MutableLinkedList{U}}}(Vector{MutableLinkedList{U}})
 
     for (id, r) in g.restrictions
@@ -318,9 +340,9 @@ function add_indexed_restrictions!(g::OSMGraph{U,T,W}) where {U <: DEFAULT_OSM_I
                 continue
             end
 
-            from_node = adjacent_node(g, r.via_node, r.from_way)::T
+            from_node = adjacent_node(g, r.via_node, r.from_way; ignore_oneway)::T
             for to_way in restricted_to_ways
-                to_node_temp = adjacent_node(g, r.via_node, to_way)
+                to_node_temp = adjacent_node(g, r.via_node, to_way; ignore_oneway)
                 to_node = isa(to_node_temp, DEFAULT_OSM_ID_TYPE) ? [to_node_temp] : to_node_temp
 
                 for tn in to_node
@@ -336,11 +358,11 @@ function add_indexed_restrictions!(g::OSMGraph{U,T,W}) where {U <: DEFAULT_OSM_I
 
             from_way_nodes = g.ways[r.from_way].nodes
             from_via_intersection_node = first_common_trailing_element(from_way_nodes, via_way_nodes)
-            from_node = adjacent_node(g, from_via_intersection_node, r.from_way)::T
+            from_node = adjacent_node(g, from_via_intersection_node, r.from_way; ignore_oneway)::T
 
             to_way_nodes = g.ways[r.to_way].nodes
             to_via_intersection_node = first_common_trailing_element(to_way_nodes, via_way_nodes)
-            to_node = adjacent_node(g, to_via_intersection_node, r.to_way)::T
+            to_node = adjacent_node(g, to_via_intersection_node, r.to_way; ignore_oneway)::T
 
             if to_via_intersection_node == via_way_nodes[end]
                 # Ordering matters, see doc string, but 
