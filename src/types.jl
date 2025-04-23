@@ -50,6 +50,7 @@ mutable struct Node{T<:Union{Integer,String}}
     location::GeoLocation
     tags::Union{Dict{String,Any},Nothing}
     blocked::Bool
+    safezone_entry::Bool
 end
 
 """
