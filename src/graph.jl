@@ -264,6 +264,8 @@ end
     add_node_tags!(g::OSMGraph)
 
 Adds maxspeed and lanes tags to every `OSMGraph` node.
+# Notes 
+Also calculates capacity with lane. Not the default behaviour of LightOSM
 """
 function add_node_tags!(g::OSMGraph)
     # Custom mean used to minimise allocations
@@ -282,7 +284,9 @@ function add_node_tags!(g::OSMGraph)
         ways = g.node_to_way[id]
         tags_dict = g.nodes[id].tags::Dict{String, Any}
         tags_dict["maxspeed"] = _roundedmean(ways, "maxspeed", M)
-        tags_dict["lanes"] = _roundedmean(ways, "lanes", L)
+        lanes = _roundedmean(ways, "lanes", L)
+        tags_dict["lanes"] = lanes
+        g.nodes[id].capacity = lanes * 3 * 5 / 1 #3-avg lane width, 5-road segment length, 1-person per m2
         push!(g.node_coordinates, [data.location.lat, data.location.lon])
     end
 end
