@@ -197,7 +197,7 @@ function parse_osm_buildings_dict(osm_buildings_dict::AbstractDict)::Dict{Intege
             false,
             false,
             0,
-            0,
+            0.0,
             0
         )
     end
