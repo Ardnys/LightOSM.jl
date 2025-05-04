@@ -52,7 +52,7 @@ mutable struct Node{T<:Union{Integer,String}}
     blocked::Bool
     safezone_entry::Bool
     blocked_status::Int # 0-open, 1-half blocked, 2-fully blocked
-    count::Int
+    count::Union{Int, Float64} # float for infinity
     capacity::Int
 end
 
