@@ -49,10 +49,9 @@ mutable struct Node{T<:Union{Integer,String}}
     id::T
     location::GeoLocation
     tags::Union{Dict{String,Any},Nothing}
-    blocked::Bool
     safezone_entry::Bool
     blocked_status::Int # 0-open, 1-half blocked, 2-fully blocked
-    count::AbstractFloat # float for infinity
+    count::Int
     capacity::Int
 end
 
