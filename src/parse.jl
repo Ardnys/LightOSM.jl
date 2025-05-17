@@ -250,7 +250,10 @@ function parse_osm_network_dict(osm_network_dict::AbstractDict,
                 id,
                 GeoLocation(node["lat"], node["lon"]),
                 haskey(node, "tags") ? node["tags"] : Dict{String,Any}(),
-                false
+                false,
+                0,
+                0,
+                0
             )
         end
     end
